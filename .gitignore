@@ -1,0 +1,35 @@
+# Recordings of real speech - never commit. Other people are in them.
+recordings/
+*.wav
+*.flac
+*.webm
+*.ogg
+
+# Brain stores - personal notes, transcripts, embeddings
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Node
+node_modules/
+dist/
+
+# Local config / secrets (Token Factory keys, VAPID private key)
+.env
+.env.local
+*.pem
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
