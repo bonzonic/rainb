@@ -1,0 +1,12 @@
+.venv
+.git
+.env
+data
+models
+soundtrack
+recordings
+spikes
+docs
+node_modules
+embeddings.json
+**/__pycache__
