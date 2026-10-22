@@ -1,0 +1,10 @@
+{
+  "name": "RainB",
+  "short_name": "RainB",
+  "description": "The word on the tip of your tongue, on your phone before you finish saying \"uh\".",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#EEF1F6",
+  "theme_color": "#5B3FD6",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

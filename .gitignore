@@ -4,6 +4,8 @@ recordings/
 *.flac
 *.webm
 *.ogg
+# ...except the synthetic (text-to-speech) demo clips
+!web/samples/*.wav
 
 # Brain stores - personal notes, transcripts, embeddings
 data/
@@ -25,7 +27,8 @@ dist/
 
 # Local config / secrets (Token Factory keys, VAPID private key)
 .env
-.env.local
+.env.*
+!.env.example
 *.pem
 
 # Editors / OS
@@ -33,3 +36,9 @@ dist/
 .idea/
 .DS_Store
 Thumbs.db
+
+# notes-search embedding cache
+embeddings.json
+
+# Downloaded model weights
+models/
