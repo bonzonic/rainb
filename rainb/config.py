@@ -31,7 +31,10 @@ DATA_DIR = Path(os.environ.get("RAINB_DATA", ROOT / "data"))
 PERSONA_DIR = ROOT / "personas"
 # auto: Parakeet + NeMo word boosting on a CUDA GPU, else Parakeet ONNX on CPU; or nemo | parakeet | whisper
 ASR_BACKEND = os.environ.get("ASR_BACKEND", "auto")
-WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "large-v3-turbo")
+# After-the-fact LLM fixing of misheard names. Off: it dropped words and rewrote real
+# "Toronto" into "Trontal" in tests; NeMo word boosting fixes names at the source instead.
+LLM_NAME_FIX = os.environ.get("LLM_NAME_FIX", "0") == "1"
+WHISPER_MODEL =os.environ.get("WHISPER_MODEL", "large-v3-turbo")
 ASR_MODEL_DIR =Path(os.environ.get("ASR_MODEL_DIR", ROOT / "models" / "parakeet-tdt-0.6b-v2"))
 
 # Pairing: whoever presents this key gets the owner's brain. Unset = no owner brain.

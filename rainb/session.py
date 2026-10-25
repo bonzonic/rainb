@@ -165,11 +165,12 @@ class Session:
 
     async def _finish_utterance(self, words: list[WordEvent]):
         text = " ".join(w.text for w in words).strip()
-        try:
-            fixed = await correct(self.tf, text, self.brain.vocabulary())
-        except Exception:
-            log.exception("correction failed")
-            fixed = text
+        fixed = text
+        if config.LLM_NAME_FIX:
+            try:
+                fixed = await correct(self.tf, text, self.brain.vocabulary())
+            except Exception:
+                log.exception("correction failed")
         if fixed != text:
             await self.send({"type": "correct", "start": words[0].start, "end": words[-1].end, "text": fixed})
         if not self.remember or len([w for w in words if norm(w.text)]) < 4:
