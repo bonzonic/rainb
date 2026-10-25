@@ -21,6 +21,8 @@ K = 5
 
 SYSTEM = """You help someone who froze mid-sentence. Given their words and numbered notes from their own memory, return the word(s) they are reaching for, but ONLY if one note is clearly about the very thing they are describing.
 
+Their words come from speech recognition, which often mis-hears names ("Control" for "Trontal"), so match on meaning and sound, not exact spelling.
+
 Reply with JSON only: {"answer": "<the missing words, max 8>" or null, "note": <note number> or null}
 
 Answer null when:

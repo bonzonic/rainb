@@ -92,8 +92,28 @@ function onMessage(m) {
     case "candidate": candidate(m); break;
     case "answer": answer(m); break;
     case "silent": silent(m); break;
+    case "correct": correctWords(m); break;
     case "cancel": break;
   }
+}
+
+// a finished sentence came back with misheard names fixed: swap its words in place
+function correctWords(m) {
+  const spans = [...$("transcript").querySelectorAll(".w")].filter((el) => {
+    const t = parseFloat(el.dataset.start);
+    return t >= m.start - 0.01 && t <= m.end + 0.01;
+  });
+  if (!spans.length) return;
+  const old = spans.map((s) => s.textContent.trim().toLowerCase());
+  const anchor = spans[0];
+  for (const word of m.text.split(/\s+/)) {
+    const s = document.createElement("span");
+    s.className = "w" + (old.includes(word.toLowerCase()) ? "" : " fixed") + (anchor.classList.contains("old") ? " old" : "");
+    s.dataset.start = m.start;
+    s.textContent = word + " ";
+    anchor.before(s);
+  }
+  spans.forEach((s) => s.remove());
 }
 
 // ---------- transcript + gap ----------
@@ -123,6 +143,7 @@ function addWords(words) {
     const s = document.createElement("span");
     const bare = w.text.toLowerCase().replace(/[^\w']/g, "");
     s.className = "w" + (FILLERS.has(bare) ? " filler" : "");
+    s.dataset.start = w.start;
     s.textContent = w.text + " ";
     tr.insertBefore(s, gap);
   }

@@ -177,6 +177,16 @@ class Brain:
             "moments": q("SELECT COUNT(*) FROM moments"),
         }
 
+    def vocabulary(self) -> list[str]:
+        """Names and terms from this brain's notes, for fixing misheard words."""
+        from .correct import vocabulary
+
+        key = self.db.execute("SELECT COUNT(*), COALESCE(MAX(id), 0) FROM documents").fetchone()
+        if getattr(self, "_vocab_key", None) != tuple(key):
+            texts = [r[0] for r in self.db.execute("SELECT text FROM chunks WHERE kind = 'doc'")]
+            self._vocab, self._vocab_key = vocabulary(texts), tuple(key)
+        return self._vocab
+
     def documents(self) -> list[dict]:
         rows = self.db.execute(
             "SELECT d.source, d.title, d.added_at, COUNT(c.id) AS chunks FROM documents d "

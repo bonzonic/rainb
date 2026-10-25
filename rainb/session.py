@@ -10,6 +10,7 @@ from fastapi import WebSocket
 
 from . import config
 from .brain import Brain
+from .correct import correct
 from .detector import HesitationDetector, norm
 from .embedder import Embedder
 from .events import ME, Cancel, StuckCandidate, WordEvent
@@ -159,13 +160,24 @@ class Session:
 
     def _flush_utterance(self):
         words, self.utterance = self.utterance, []
+        if words:
+            self._spawn(self._finish_utterance(words))
+
+    async def _finish_utterance(self, words: list[WordEvent]):
         text = " ".join(w.text for w in words).strip()
+        try:
+            fixed = await correct(self.tf, text, self.brain.vocabulary())
+        except Exception:
+            log.exception("correction failed")
+            fixed = text
+        if fixed != text:
+            await self.send({"type": "correct", "start": words[0].start, "end": words[-1].end, "text": fixed})
         if not self.remember or len([w for w in words if norm(w.text)]) < 4:
             return
         speaker = words[0].speaker
         expires = None if speaker == ME else time.time() + config.OTHERS_RETENTION_H * 3600
-        vec = self.emb.passage(text)
-        self.brain.add_memory("utterance", text, vec, speaker, expires, heading="conversation")
+        vec = self.emb.passage(fixed)
+        self.brain.add_memory("utterance", fixed, vec, speaker, expires, heading="conversation")
 
     async def finish(self):
         self._flush_utterance()

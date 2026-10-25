@@ -69,6 +69,7 @@ main { max-width: 640px; margin: 0 auto; padding: 16px; }
 .transcript .w { transition: color .6s; }
 .transcript .w.old { color: var(--muted); }
 .transcript .w.filler { color: var(--held); font-style: italic; }
+.transcript .w.fixed { text-decoration: underline dotted var(--synapse); text-underline-offset: .2em; }
 
 /* the gap: grows with your silence, turns amber when it counts, and the answer drops in */
 .gap {
