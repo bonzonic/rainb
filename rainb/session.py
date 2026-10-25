@@ -90,8 +90,16 @@ class Session:
                 end = start + len(audio) / 16000
                 raw = await asyncio.to_thread(ASR.words, audio, self.brain.vocabulary())
                 words = self.stream.accept(raw, start, end)
+                fixed: set[int] = set()
                 if words:
-                    await self.send({"type": "words", "words": [w.to_dict() for w in words]})
+                    aliases = self.brain.aliases()
+                    for i, w in enumerate(words):
+                        name = aliases.fix(w.text)
+                        if name:  # "Toronto" -> "Trontal": a name from your notes that sounds the same
+                            words[i] = WordEvent(name, w.start, w.end, w.speaker)
+                            fixed.add(i)
+                    await self.send({"type": "words", "words": [
+                        {**w.to_dict(), "fixed": i in fixed} for i, w in enumerate(words)]})
                 for w in words:
                     self._remember_word(w)
                     for ev in self.det.feed(w):

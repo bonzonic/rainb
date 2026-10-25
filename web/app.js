@@ -142,7 +142,8 @@ function addWords(words) {
   for (const w of words) {
     const s = document.createElement("span");
     const bare = w.text.toLowerCase().replace(/[^\w']/g, "");
-    s.className = "w" + (FILLERS.has(bare) || /^(u+h+|u+m+|e+r+m*|a+h+|h+m+|m+)$/.test(bare) ? " filler" : "");
+    s.className = "w" + (FILLERS.has(bare) || /^(u+h+|u+m+|e+r+m*|a+h+|h+m+|m+)$/.test(bare) ? " filler" : "") +
+      (w.fixed ? " fixed" : "");
     s.dataset.start = w.start;
     s.textContent = w.text + " ";
     tr.insertBefore(s, gap);

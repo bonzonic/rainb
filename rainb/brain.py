@@ -185,7 +185,19 @@ class Brain:
         if getattr(self, "_vocab_key", None) != tuple(key):
             texts = [r[0] for r in self.db.execute("SELECT text FROM chunks WHERE kind = 'doc'")]
             self._vocab, self._vocab_key = vocabulary(texts), tuple(key)
+            self._aliases = None
         return self._vocab
+
+    def aliases(self):
+        """Sounds-like fixer for this brain's names (rebuilt with the vocabulary)."""
+        from .aliases import Aliases
+        from .speech import boost_terms
+
+        vocab = self.vocabulary()
+        if getattr(self, "_aliases", None) is None:
+            notes = " ".join(r[0] for r in self.db.execute("SELECT text FROM chunks WHERE kind = 'doc'"))
+            self._aliases = Aliases(boost_terms(vocab), notes)
+        return self._aliases
 
     def documents(self) -> list[dict]:
         rows = self.db.execute(
