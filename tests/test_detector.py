@@ -48,6 +48,13 @@ def test_trailing_filler_counts_and_lowers_threshold():
     assert fired[0].at - end < 0.6
 
 
+def test_drawn_out_filler_spellings_count_as_fillers():
+    det = HesitationDetector()
+    _, end = say(det, "the place... Uhhh...")
+    fired = run_pause(det, end, 1.0)
+    assert len(fired) == 1 and "filler" in fired[0].signals
+
+
 def test_explicit_phrase_fires_without_pause():
     det = HesitationDetector()
     out, _ = say(det, "uh what's the place called again?")

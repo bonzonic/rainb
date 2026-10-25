@@ -15,7 +15,7 @@ from .detector import HesitationDetector, norm
 from .embedder import Embedder
 from .events import ME, Cancel, StuckCandidate, WordEvent
 from .recall import recall
-from .speech import Parakeet, SpeechStream
+from .speech import ASR, SpeechStream
 from .tokenfactory import TokenFactory
 
 log = logging.getLogger("rainb.session")
@@ -88,7 +88,7 @@ class Session:
                 self.asr_again = False
                 audio, start = self.stream.snapshot()
                 end = start + len(audio) / 16000
-                raw = await asyncio.to_thread(Parakeet.words, audio)
+                raw = await asyncio.to_thread(ASR.words, audio, self.brain.vocabulary())
                 words = self.stream.accept(raw, start, end)
                 if words:
                     await self.send({"type": "words", "words": [w.to_dict() for w in words]})

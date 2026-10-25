@@ -20,7 +20,7 @@ from . import brains, config
 from .embedder import Embedder
 from .ingest import SUPPORTED, ingest_file
 from .session import Session
-from .speech import Parakeet
+from .speech import ASR
 from .tokenfactory import TokenFactory
 
 log = logging.getLogger("rainb")
@@ -74,7 +74,7 @@ async def lifespan(app: FastAPI):
     tf = TokenFactory()
     state.update(emb=emb, tf=tf)
     await asyncio.to_thread(emb.warm)
-    await asyncio.to_thread(Parakeet.load)
+    log.info("speech: %s", await asyncio.to_thread(ASR.name))
     log.info("demo brain: %s", await brains.build_demo(emb, log=log.info))
     try:  # open the HTTPS pool before the first stall
         await tf.chat([{"role": "user", "content": "hi"}], max_tokens=1)
@@ -114,7 +114,7 @@ async def whoami(request: Request):
     b = brains.get(bid)
     return {"brain": bid, "label": b.label, "remember": remember, "stats": b.stats(),
             "owner_pairing": bool(config.OWNER_KEY), "samples": SAMPLES,
-            "models": {"asr": "nvidia/parakeet-tdt-0.6b-v2", "llm": config.CHAT_MODEL}}
+            "models": {"asr": ASR.name(), "llm": config.CHAT_MODEL}}
 
 
 @app.get("/api/brain")

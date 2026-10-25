@@ -51,7 +51,7 @@ async function loadInfo() {
   info = await api("/api/whoami");
   $("brain-status").textContent = `Using: ${info.label}`;
   $("models").textContent =
-    `Speech: ${info.models.asr} (NVIDIA Parakeet, on the server). ` +
+    `Speech: ${info.models.asr}, on the RainB server. ` +
     `Recall: ${info.models.llm} on Nebius Token Factory. Search: local embeddings + keyword index.`;
   $("pair-card").hidden = !info.owner_pairing;
   const ul = $("samples");
@@ -142,7 +142,7 @@ function addWords(words) {
   for (const w of words) {
     const s = document.createElement("span");
     const bare = w.text.toLowerCase().replace(/[^\w']/g, "");
-    s.className = "w" + (FILLERS.has(bare) ? " filler" : "");
+    s.className = "w" + (FILLERS.has(bare) || /^(u+h+|u+m+|e+r+m*|a+h+|h+m+|m+)$/.test(bare) ? " filler" : "");
     s.dataset.start = w.start;
     s.textContent = w.text + " ";
     tr.insertBefore(s, gap);

@@ -1,0 +1,6 @@
+# Optional: Whisper on an NVIDIA GPU (gets your own names right; see rainb/speech.py).
+# Without these, RainB falls back to Parakeet on CPU.
+-r requirements.txt
+faster-whisper==1.2.1
+nvidia-cublas-cu12==12.9.2.10
+nvidia-cudnn-cu12==9.27.0.42

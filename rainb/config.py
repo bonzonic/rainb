@@ -29,7 +29,10 @@ EMBED_MODEL = os.environ.get("EMBED_MODEL", "Qwen/Qwen3-Embedding-8B")
 
 DATA_DIR = Path(os.environ.get("RAINB_DATA", ROOT / "data"))
 PERSONA_DIR = ROOT / "personas"
-ASR_MODEL_DIR = Path(os.environ.get("ASR_MODEL_DIR", ROOT / "models" / "parakeet-tdt-0.6b-v2"))
+# auto: Parakeet + NeMo word boosting on a CUDA GPU, else Parakeet ONNX on CPU; or nemo | parakeet | whisper
+ASR_BACKEND = os.environ.get("ASR_BACKEND", "auto")
+WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "large-v3-turbo")
+ASR_MODEL_DIR =Path(os.environ.get("ASR_MODEL_DIR", ROOT / "models" / "parakeet-tdt-0.6b-v2"))
 
 # Pairing: whoever presents this key gets the owner's brain. Unset = no owner brain.
 OWNER_KEY = os.environ.get("RAINB_OWNER_KEY", "")

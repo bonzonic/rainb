@@ -50,12 +50,13 @@ RECOVERY_GRACE_S = 3.0
 CONTEXT_WORDS = 25
 
 
+_FILLER_RE = re.compile(r"u+h+|u+m+|u+h+m+|e+r+m*|a+h+|e+h+|h+m+|m+")
+
+
 def norm(text: str) -> str:
-    return re.sub(r"[^\w']", "", text.lower())
-
-
-def ends_sentence(text: str) -> bool:
-    return text.rstrip().endswith((".", "?", "!"))
+    t = re.sub(r"[^\w']", "", text.lower())
+    # Whisper spells a long filler the way it sounds ("Uhhh...", "Ummm"); count it as one
+    return "uh" if _FILLER_RE.fullmatch(t) else t
 
 
 @dataclass
