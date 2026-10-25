@@ -87,7 +87,8 @@ class Aliases:
         """The brain name this heard word should be, or None. `context` = nearby heard words."""
         bare = re.sub(r"[^\w']", "", word)
         low = bare.lower()
-        if len(bare) < 4 or low in self.note_words:
+        # contractions ("It's", "what's") are real English, never a misheard name
+        if len(bare) < 4 or "'" in bare or low in self.note_words:
             return None
         k = skeleton(bare)
         if len(k) < 3:

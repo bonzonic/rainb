@@ -38,7 +38,7 @@ def test_real_toronto_is_fixed_only_with_supporting_context():
 
 def test_real_words_are_left_alone():
     a = Aliases(NAMES, NOTES, KNOWN)
-    for w in ["control", "council", "manager", "camping", "camp", "restaurant", "Japanese", "the"]:
+    for w in ["control", "council", "manager", "camping", "camp", "restaurant", "Japanese", "the", "It's"]:
         assert a.fix(w, ["my", "manager", "alert"]) is None, w
 
 

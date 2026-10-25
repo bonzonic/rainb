@@ -188,6 +188,11 @@ class Brain:
             self._aliases = None
         return self._vocab
 
+    def note_texts(self) -> list[str]:
+        """All document chunks (small brains: a few hundred rows at most)."""
+        with self.lock:
+            return [r[0] for r in self.db.execute("SELECT text FROM chunks WHERE kind = 'doc'")]
+
     def aliases(self):
         """Sounds-like fixer for this brain's names (rebuilt with the vocabulary)."""
         from .aliases import Aliases

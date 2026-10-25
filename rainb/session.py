@@ -146,6 +146,7 @@ class Session:
             answer=r.answer, source_chunk_id=r.source.chunk_id if r.source else None, confidence=None,
             latency_ms=since_pause_ms, late=int(late), outcome=outcome)
         if not r.ok:
+            self.det.found_nothing(c.id)  # a silent lookup shouldn't block the next real question
             await self.send({"type": "silent", "id": c.id, "moment_id": moment_id,
                              "why": "no matching note", "recall_ms": round(recall_ms)})
             return
@@ -186,6 +187,8 @@ class Session:
             await self.send({"type": "correct", "start": words[0].start, "end": words[-1].end, "text": fixed})
         if not self.remember or len([w for w in words if norm(w.text)]) < 4:
             return
+        if fixed.rstrip().endswith("?"):
+            return  # questions you asked aren't facts to remember (they'd be "found" as answers later)
         speaker = words[0].speaker
         expires = None if speaker == ME else time.time() + config.OTHERS_RETENTION_H * 3600
         vec = self.emb.passage(fixed)

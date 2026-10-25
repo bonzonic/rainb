@@ -18,6 +18,7 @@ from .tokenfactory import TokenFactory
 
 QUERY_WORDS = 18  # the tail of the sentence carries what you're reaching for
 K = 5
+MAX_SPOKEN = 2
 
 SYSTEM = """You help someone who froze mid-sentence. Given their words and numbered notes from their own memory, return the word(s) they are reaching for, but ONLY if one note is clearly about the very thing they are describing.
 
@@ -30,6 +31,7 @@ Answer null when:
 - it would need general knowledge or a guess rather than a note,
 - they are just pausing, not reaching for a specific name, place, date, number or term,
 - the answer is something they already said.
+Prefer their written notes over "something they said earlier" when both could answer.
 
 Examples:
 Notes: [1] The Thai place by the office is Baan Rim Nam.
@@ -66,18 +68,25 @@ def query_text(context: str) -> str:
 def format_notes(hits: list[Hit]) -> str:
     out = []
     for i, h in enumerate(hits, 1):
-        src = h.title or ("past conversation" if h.kind == "utterance" else h.kind)
+        src = h.title or ("something they said earlier, may be misheard" if h.kind == "utterance" else h.kind)
         head = f" / {h.heading}" if h.heading else ""
         out.append(f"[{i}] ({src}{head}) {h.text}")
     return "\n".join(out)
 
 
 def search(brain: Brain, emb: Embedder, text: str, k: int = K) -> list[Hit]:
-    hits = brain.search(emb.query(text), text, k=k + 3)
-    # the sentence you're in the middle of is already in conversation memory; skip it
+    hits = brain.search(emb.query(text), text, k=k + 30)
+    # the sentence you're in the middle of is already in conversation memory, and an
+    # earlier question you asked is not an answer to it: skip both
     said = _norm(text)
-    hits = [h for h in hits if not (h.kind == "utterance" and _norm(h.text) in said)]
-    return hits[:k]
+    hits = [h for h in hits if not (h.kind == "utterance" and
+                                    (_norm(h.text) in said or h.text.rstrip().endswith("?")))]
+    # your notes first, then at most MAX_SPOKEN things you said: repeated talk about a topic
+    # must not crowd the note out, and speech in memory may itself be misheard
+    # ("Mum is the Japanese restaurant…" must not beat the real Uokatsu note)
+    notes = [h for h in hits if h.kind != "utterance"]
+    spoken = [h for h in hits if h.kind == "utterance"][:MAX_SPOKEN]
+    return (notes[:k - len(spoken[:1])] + spoken)[:k]
 
 
 def _norm(s: str) -> str:
@@ -91,6 +100,36 @@ def grounded(answer: str, note: str) -> bool:
         return True  # "Camp 5" vs "Camp5"
     words = [w for w in _norm(answer).split() if len(w) > 1 and w not in ("the", "a", "an", "dr", "on", "at", "in")]
     return bool(words) and all(f" {w} " in note_n for w in words)
+
+
+KIN = {"mum", "mom", "mother", "dad", "father", "brother", "sister", "son", "daughter", "uncle", "aunt",
+       "cousin", "grandma", "grandmother", "grandpa", "grandfather", "wife", "husband", "boss", "manager",
+       "friend", "neighbour", "neighbor"}
+
+
+def _kin(text: str) -> set[str]:
+    return set(re.findall(r"[a-z]+", text.lower().replace("'s", ""))) & KIN
+
+
+def wrong_person(context: str, note: str, all_notes: list[str]) -> bool:
+    """You said "my brother", the note is about someone else: not your answer.
+
+    The note itself may only name the person ("Aisha's birthday is 9 December"), so follow
+    the name: some note must link that person to the relation you said ("My sister Aisha…"
+    doesn't make Aisha your brother).
+    """
+    said = _kin(" ".join(context.split()[-10:]))
+    if not said:
+        return False
+    in_note = _kin(note)
+    if in_note & said:
+        return False
+    if in_note:
+        return True
+    names = {w for w in re.findall(r"\b[A-Z][a-z]+\b", note)} - {"The", "My", "Our", "I"}
+    if not names:
+        return False
+    return not any(name in n and _kin(n) & said for name in names for n in all_notes)
 
 
 def already_said(answer: str, context: str) -> bool:
@@ -121,6 +160,9 @@ async def recall(brain: Brain, emb: Embedder, tf: TokenFactory, c: StuckCandidat
         answer = None
     else:
         answer = answer.strip().strip('"').rstrip(".")
-    if answer and (not src or not grounded(answer, src.text) or already_said(answer, c.context)):
+    if answer and (answer.endswith("?") or len(answer.split()) > 8):
+        answer = None  # an answer is the missing words, not a sentence or a question
+    if answer and (not src or not grounded(answer, src.text) or already_said(answer, c.context)
+                   or wrong_person(c.context, src.text, brain.note_texts())):
         answer = None
     return Recall(c.id, answer, src if answer else None, hits, timings, data)

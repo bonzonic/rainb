@@ -67,6 +67,23 @@ def test_direct_question_split_into_fragments_fires_once():
     assert [c.reason for c in out if isinstance(c, StuckCandidate)] == ["question"]
 
 
+def test_question_after_a_silent_early_stall_still_fires():
+    det = HesitationDetector()
+    _, end = say(det, "wait. where is")
+    [early] = run_pause(det, end, 1.0)  # fires before the subject arrives
+    det.found_nothing(early.id)  # recall found nothing for "where is"
+    out, _ = say(det, "the Japanese restaurant near my workplace?", start=end + 1.2)
+    assert [c.reason for c in out if isinstance(c, StuckCandidate)] == ["question"]
+
+
+def test_one_lookup_per_pause_even_when_it_finds_nothing():
+    det = HesitationDetector()
+    _, end = say(det, "where is")
+    [c] = run_pause(det, end, 0.8)
+    det.found_nothing(c.id)
+    assert run_pause(det, end + 0.8, 3.0) == []
+
+
 def test_small_talk_questions_do_not_fire():
     det = HesitationDetector()
     out, _ = say(det, "How are you doing today? What?")

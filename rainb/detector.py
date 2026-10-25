@@ -80,6 +80,8 @@ class HesitationDetector:
         self.cooldown_until = float("-inf")
         self.grace_until = float("-inf")
         self.last_fire_at = float("-inf")
+        self.last_fire_id = 0
+        self.fired_pause = None
         self.other_spoke_at = float("-inf")
 
     # -- inputs ---------------------------------------------------------------
@@ -137,6 +139,19 @@ class HesitationDetector:
         after = [t for t in toks[q + 1:] if t and t not in FILLERS]
         return len(after) >= 3  # "what is the restaurant?", not a bare "What?"
 
+    def found_nothing(self, candidate_id: int):
+        """Recall stayed silent for this candidate: it shouldn't use up the cool-down.
+
+        Typical case: "Where is… where is" fires on the pause before the subject arrives,
+        finds nothing, and would otherwise block "…the Japanese restaurant near my
+        workplace?" a second later.
+        """
+        if self.last_fire_id == candidate_id:
+            self.cooldown_until = float("-inf")
+            self.last_fire_at = float("-inf")
+            if self.sent and self.sent.id == candidate_id:
+                self.sent = None
+
     def manual(self, now: float) -> StuckCandidate:
         """The "I'm stuck" button: always fires, ignores cool-down."""
         c = self._make("manual", now, self.words[-1].end if self.words else now, ())
@@ -150,8 +165,10 @@ class HesitationDetector:
         if self.other_spoke_at > last.end:  # turn handover, not a stall
             return []
         st = self.status(now)
-        if st.armed and st.pause_s > st.threshold_s:
+        if st.armed and st.pause_s > st.threshold_s and last.end != self.fired_pause:
             c = self._fire("structural", at=now, pause_start=last.end, signals=self._weak_signals(now))
+            if c:
+                self.fired_pause = last.end  # one lookup per pause, even if it found nothing
             return [c] if c else []
         return []
 
@@ -209,4 +226,5 @@ class HesitationDetector:
         c = StuckCandidate(self.next_id, reason, at, pause_start, context, tuple(signals))
         self.next_id += 1
         self.last_fire_at = at
+        self.last_fire_id = c.id
         return c
