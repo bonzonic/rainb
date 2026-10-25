@@ -1,0 +1,73 @@
+[
+  {
+    "id": "n01",
+    "category": "place",
+    "text": "The Japanese restaurant near work is Uokatsu, on Jalan Telawi."
+  },
+  {
+    "id": "n02",
+    "category": "person",
+    "text": "My dentist is Dr Tan in Bangsar."
+  },
+  { "id": "n03", "category": "date", "text": "Mum's birthday is 3 November." },
+  {
+    "id": "n04",
+    "category": "place",
+    "text": "FILL: my go-to coffee place near Mid Valley is Only Human Coffee, known for their Strawberrry Matcha."
+  },
+  {
+    "id": "n05",
+    "category": "place",
+    "text": "FILL: the badminton court I play at on Saturdays is Champion Court in SS2."
+  },
+  {
+    "id": "n06",
+    "category": "place",
+    "text": "FILL: the bouldering gym I go to is Camp5."
+  },
+  {
+    "id": "n07",
+    "category": "person",
+    "text": "FILL: my manager at Trontal is Khai Wei; we talk about System Design, Architectural Thinking and User Experience."
+  },
+  {
+    "id": "n08",
+    "category": "person",
+    "text": "FILL: my friend Vincent works at Rezolve AI in Singapore."
+  },
+  {
+    "id": "n09",
+    "category": "person",
+    "text": "FILL: Caleb is my friend; his birthday is 30 October."
+  },
+  {
+    "id": "n10",
+    "category": "work",
+    "text": "FILL: the kScript indicator I built for my boss is called Volume Bubbles."
+  },
+  {
+    "id": "n11",
+    "category": "work",
+    "text": "FILL: the Trontal alert system has 60000 alerts and uses Redis for the efficient evaluation of alerts."
+  },
+  {
+    "id": "n12",
+    "category": "fact",
+    "text": "FILL: my favourite anime is Angel Beats by Jun Maeda."
+  },
+  {
+    "id": "n13",
+    "category": "fact",
+    "text": "FILL: the Japanese textbook I'm using is Genki, currently on chapter 3."
+  },
+  {
+    "id": "n14",
+    "category": "date",
+    "text": "FILL: my next dentist appointment is on December 2026."
+  },
+  {
+    "id": "n15",
+    "category": "fact",
+    "text": "FILL: the hackathon I'm entering is Nvidia and the deadline is October 31st."
+  }
+]
