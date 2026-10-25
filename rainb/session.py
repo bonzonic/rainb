@@ -6,6 +6,7 @@ import json
 import logging
 import time
 
+import numpy as np
 from fastapi import WebSocket
 
 from . import config
@@ -15,7 +16,7 @@ from .detector import HesitationDetector, norm
 from .embedder import Embedder
 from .events import ME, Cancel, StuckCandidate, WordEvent
 from .recall import recall
-from .speech import ASR, SpeechStream
+from .speech import ACCENT_LABELS, ASR, MY, US, SpeechStream
 from .tokenfactory import TokenFactory
 
 log = logging.getLogger("rainb.session")
@@ -23,9 +24,11 @@ UTTERANCE_GAP_S = 1.5
 
 
 class Session:
-    def __init__(self, ws: WebSocket, brain: Brain, emb: Embedder, tf: TokenFactory, remember: bool):
+    def __init__(self, ws: WebSocket, brain: Brain, emb: Embedder, tf: TokenFactory, remember: bool,
+                 accent: str = US):
         self.ws, self.brain, self.emb, self.tf = ws, brain, emb, tf
         self.remember = remember  # write conversation memory into this brain?
+        self.accent, self.accent_note = ASR.resolve(accent)
         self.stream = SpeechStream()
         self.det = HesitationDetector()
         self.asr_busy = False
@@ -37,6 +40,11 @@ class Session:
         self.last_meter = 0.0
         self.source = "mic"
         self.closed = False
+        self._stat_buf: list = []
+
+    def engine_info(self) -> dict:
+        return {"type": "engine", "accent": self.accent, "label": ACCENT_LABELS[self.accent],
+                "name": ASR.name(self.accent), "note": self.accent_note}
 
     async def send(self, msg: dict):
         if not self.closed:
@@ -52,7 +60,27 @@ class Session:
 
     # -- inputs ---------------------------------------------------------------
 
+    def _audio_stats(self, pcm: bytes):
+        """Every ~5 s of sound, log level, clipping and how much energy is above 3.4 kHz.
+        Speech normally has plenty up there (s, t, b bursts); a narrowband or mis-rated phone
+        stream doesn't. Numbers only: no audio is kept."""
+        self._stat_buf.append(np.frombuffer(pcm, dtype="<i2"))
+        if sum(len(b) for b in self._stat_buf) < 16000 * 5:
+            return
+        x = np.concatenate(self._stat_buf).astype(np.float32) / 32768.0
+        self._stat_buf = []
+        rms = float(np.sqrt(np.mean(x * x)))
+        if rms < 0.005:
+            return
+        spec = np.abs(np.fft.rfft(x)) ** 2
+        freqs = np.fft.rfftfreq(len(x), 1 / 16000)
+        hf = float(spec[freqs > 3400].sum() / max(spec[freqs > 80].sum(), 1e-12))
+        log.info("audio: rms %.3f peak %.2f clipped %.2f%% energy>3.4kHz %.1f%%", rms, float(np.abs(x).max()),
+                 100 * float(np.mean(np.abs(x) > 0.99)), 100 * hf)
+
     async def on_audio(self, pcm: bytes):
+        if self.source == "mic":
+            self._audio_stats(pcm)
         due, level = self.stream.push(pcm)
         if due:
             self._spawn(self._transcribe())
@@ -69,6 +97,14 @@ class Session:
         kind = msg.get("type")
         if kind == "start":
             self.source = msg.get("source", "mic")
+            if msg.get("remember") is False:  # test runs: don't write anything into memory
+                self.remember = False
+            if msg.get("accent") in (US, MY):  # the phone's "Which English do you speak?" choice
+                self.accent, self.accent_note = ASR.resolve(msg["accent"])
+            await self.send(self.engine_info())
+        elif kind == "mic":
+            log.info("mic: context %s Hz, settings %s, device %r, %s", msg.get("context_rate"),
+                     msg.get("settings"), msg.get("label"), (msg.get("ua") or "")[:80])
         elif kind == "stuck":
             await self._candidate(self.det.manual(self.stream.t))
         elif kind == "not_it" and msg.get("moment_id"):
@@ -88,7 +124,7 @@ class Session:
                 self.asr_again = False
                 audio, start = self.stream.snapshot()
                 end = start + len(audio) / 16000
-                raw = await asyncio.to_thread(ASR.words, audio, self.brain.vocabulary())
+                raw = await asyncio.to_thread(ASR.words, audio, self.brain.vocabulary(), self.accent)
                 words = self.stream.accept(raw, start, end)
                 fixed: set[int] = set()
                 if words:

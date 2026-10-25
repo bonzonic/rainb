@@ -43,3 +43,6 @@ embeddings.json
 
 # Downloaded model weights
 models/
+
+# end-to-end test output
+eval/e2e_last.json

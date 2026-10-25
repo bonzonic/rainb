@@ -56,7 +56,8 @@ async def cmd_replay(a):
     """Feed a wav in 100 ms frames on a simulated clock, exactly like the phone does."""
     from .speech import ASR, SpeechStream
 
-    print("speech:", ASR.name())
+    accent = "my" if a.brain == "me" else "us"
+    print("speech:", ASR.name(accent))
     tf, emb = TokenFactory(), Embedder()
     emb.warm()
     brain = brains.get(a.brain)
@@ -71,7 +72,7 @@ async def cmd_replay(a):
         if due:
             audio, start = stream.snapshot()
             t0 = time.perf_counter()
-            words = stream.accept(ASR.words(audio, brain.vocabulary()), start, start + len(audio) / 16000)
+            words = stream.accept(ASR.words(audio, brain.vocabulary(), accent), start, start + len(audio) / 16000)
             asr_ms = (time.perf_counter() - t0) * 1000
             if words:
                 print(f"{stream.t:6.2f}s  asr {asr_ms:4.0f}ms  " + " ".join(w.text for w in words))

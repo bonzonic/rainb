@@ -20,7 +20,7 @@ from . import brains, config
 from .embedder import Embedder
 from .ingest import SUPPORTED, ingest_file
 from .session import Session
-from .speech import ASR
+from .speech import ASR, MY, US
 from .tokenfactory import TokenFactory
 
 log = logging.getLogger("rainb")
@@ -53,6 +53,11 @@ def brain_for(cookies) -> tuple[str, bool]:
     return "demo", False  # the shared persona never stores what visitors say
 
 
+def default_accent(brain_id: str) -> str:
+    """The owner speaks Malaysian English; the demo persona and judges default to US / UK."""
+    return MY if brain_id == "me" else US
+
+
 async def housekeeping():
     last_day = time.strftime("%Y-%m-%d")
     while True:
@@ -74,11 +79,15 @@ async def lifespan(app: FastAPI):
     tf = TokenFactory()
     state.update(emb=emb, tf=tf)
     await asyncio.to_thread(emb.warm)
-    log.info("speech: %s", await asyncio.to_thread(ASR.name))
+    await asyncio.to_thread(ASR.load)
+    log.info("speech: US/UK = %s; Malaysia = %s", ASR.name(US),
+             ASR.name(MY) if ASR.my_ok else f"unavailable ({ASR.my_error}), falls back to US")
     if config.OWNER_KEY and brains.exists("me"):  # load the owner's names now, not on their first sentence
         import numpy as np
 
-        await asyncio.to_thread(ASR.words, np.zeros(16000, dtype=np.float32), brains.get("me").vocabulary())
+        silence = np.zeros(16000, dtype=np.float32)
+        for accent in (US, MY):
+            await asyncio.to_thread(ASR.words, silence, brains.get("me").vocabulary(), accent)
     log.info("demo brain: %s", await brains.build_demo(emb, log=log.info))
     try:  # open the HTTPS pool before the first stall
         await tf.chat([{"role": "user", "content": "hi"}], max_tokens=1)
@@ -118,7 +127,9 @@ async def whoami(request: Request):
     b = brains.get(bid)
     return {"brain": bid, "label": b.label, "remember": remember, "stats": b.stats(),
             "owner_pairing": bool(config.OWNER_KEY), "samples": SAMPLES,
-            "models": {"asr": ASR.name(), "llm": config.CHAT_MODEL}}
+            "models": {"asr": ASR.name(default_accent(bid)), "llm": config.CHAT_MODEL},
+            "accents": {"default": default_accent(bid), "malaysian_available": bool(ASR.my_ok),
+                        "names": {US: ASR.name(US), MY: ASR.name(MY)}}}
 
 
 @app.get("/api/brain")
@@ -213,6 +224,35 @@ async def not_it(moment_id: int, request: Request):
     return {"ok": True}
 
 
+# -- test clips (owner only): recorded on the phone to compare speech models ----
+
+TESTCLIPS = config.ROOT / "recordings" / "testset"  # git-ignored, stays on this machine
+
+
+@app.post("/api/testclips/{n}")
+async def save_testclip(n: int, request: Request, text: str = "", rate: str = ""):
+    if brain_for(request.cookies)[0] != "me":
+        raise HTTPException(403, "pair this phone as the owner first")
+    if not 1 <= n <= 50:
+        raise HTTPException(400, "bad clip number")
+    import json as _json
+    import wave
+
+    pcm = await request.body()
+    TESTCLIPS.mkdir(parents=True, exist_ok=True)
+    with wave.open(str(TESTCLIPS / f"{n:02d}.wav"), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(16000)
+        w.writeframes(pcm)
+    refs_path = TESTCLIPS / "refs.json"
+    refs = _json.loads(refs_path.read_text(encoding="utf-8")) if refs_path.exists() else {}
+    refs[f"{n:02d}.wav"] = {"text": text, "context_rate": rate}
+    refs_path.write_text(_json.dumps(refs, indent=1), encoding="utf-8")
+    log.info("test clip %02d saved: %.1f s, context %s Hz", n, len(pcm) / 32000, rate)
+    return {"ok": True, "seconds": round(len(pcm) / 32000, 1)}
+
+
 # -- live session ------------------------------------------------------------
 
 @app.websocket("/ws")
@@ -220,7 +260,7 @@ async def ws_listen(ws: WebSocket):
     await ws.accept()
     bid, remember = brain_for(ws.cookies)
     brain = brains.get(bid)
-    s = Session(ws, brain, state["emb"], state["tf"], remember=remember)
+    s = Session(ws, brain, state["emb"], state["tf"], remember=remember, accent=default_accent(bid))
     await s.send({"type": "ready", "brain": bid, "label": brain.label, "remember": remember})
     try:
         while True:

@@ -54,6 +54,13 @@ h3 { font: 800 18px/1.2 var(--display); margin: 28px 0 8px; }
 main { max-width: 640px; margin: 0 auto; padding: 16px; }
 .screen[hidden] { display: none; }
 .brainline { margin: 0 0 12px; color: var(--muted); font-size: 15px; }
+.accent { border: 0; padding: 0; margin: 0 0 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.accent legend { float: left; font-size: 15px; color: var(--muted); margin-right: 4px; padding: 0; }
+.accent label { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--paper); font-size: 15px; cursor: pointer; }
+.accent input { accent-color: var(--synapse); margin: 0; }
+.accent label:has(input:checked) { border-color: var(--synapse); color: var(--synapse); font-weight: 700; }
+.accent input:disabled + * , .accent label:has(input:disabled) { opacity: .5; cursor: not-allowed; }
 .link { background: none; border: 0; padding: 0; color: var(--synapse); text-decoration: underline; text-underline-offset: 3px; }
 
 /* stage: the sentence and the blank you can't fill */

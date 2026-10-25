@@ -54,6 +54,7 @@ async function loadInfo() {
     `Speech: ${info.models.asr}, on the RainB server. ` +
     `Recall: ${info.models.llm} on Nebius Token Factory. Search: local embeddings + keyword index.`;
   $("pair-card").hidden = !info.owner_pairing;
+  showAccent();
   const ul = $("samples");
   ul.innerHTML = "";
   for (const s of info.samples) {
@@ -69,6 +70,27 @@ async function loadInfo() {
   }
 }
 
+// ---------- "Which English do you speak?" (remembered per phone and brain) ----------
+const accentKey = () => `rainb-accent-${info?.brain || "demo"}`;
+function chosenAccent() {
+  let saved = null;
+  try { saved = localStorage.getItem(accentKey()); } catch {}
+  return saved || info?.accents?.default || "us";
+}
+function showAccent() {
+  const a = chosenAccent();
+  for (const r of document.querySelectorAll('input[name="accent"]')) r.checked = r.value === a;
+  const my = document.querySelector('input[name="accent"][value="my"]');
+  if (my && info?.accents && !info.accents.malaysian_available) {
+    my.parentElement.title = "Needs a GPU on the RainB server: falls back to US / UK English";
+  }
+}
+document.addEventListener("change", (e) => {
+  if (e.target.name !== "accent") return;
+  try { localStorage.setItem(accentKey(), e.target.value); } catch {}
+  toast(mode ? "Takes effect the next time you start listening." : "Saved.");
+});
+
 // ---------- socket ----------
 function openSocket(source) {
   return new Promise((resolve, reject) => {
@@ -76,7 +98,7 @@ function openSocket(source) {
     ws = new WebSocket(`${proto}://${location.host}/ws`);
     ws.binaryType = "arraybuffer";
     ws.onopen = () => {
-      ws.send(JSON.stringify({ type: "start", source }));
+      ws.send(JSON.stringify({ type: "start", source, accent: chosenAccent() }));
       resolve();
     };
     ws.onerror = () => reject(new Error("Can't reach the RainB server."));
@@ -93,6 +115,10 @@ function onMessage(m) {
     case "answer": answer(m); break;
     case "silent": silent(m); break;
     case "correct": correctWords(m); break;
+    case "engine":
+      $("models").textContent = `Speech: ${m.name}, on the RainB server. Recall: ${info?.models?.llm} on Nebius Token Factory.`;
+      if (m.note) $("hint").textContent = m.note;
+      break;
     case "cancel": break;
   }
 }
@@ -231,8 +257,11 @@ $("more").addEventListener("click", () => ($("answer-more").hidden = !$("answer-
 // ---------- mic ----------
 async function startMic() {
   if (!navigator.mediaDevices?.getUserMedia) throw new Error("This browser can't record audio. Try Chrome.");
+  // Phone noise suppression gates the start of speech: "Bouldering" arrived as "Oldering".
+  // Keep auto-gain (phone mics are quiet) but send the raw onset. ?mic=processed restores the old setup.
+  const processed = new URLSearchParams(location.search).get("mic") === "processed";
   const stream = await navigator.mediaDevices.getUserMedia({
-    audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    audio: { channelCount: 1, echoCancellation: processed, noiseSuppression: processed, autoGainControl: true },
   });
   const ctx = new AudioContext({ sampleRate: SR });
   await ctx.audioWorklet.addModule("/pcm-worklet.js");
@@ -241,6 +270,10 @@ async function startMic() {
   node.port.onmessage = (e) => ws?.readyState === 1 && ws.send(e.data);
   src.connect(node);
   mic = { ctx, stream, node };
+  // diagnostics: what the phone actually gives us (no audio involved)
+  const t = stream.getAudioTracks()[0];
+  ws?.send(JSON.stringify({ type: "mic", context_rate: ctx.sampleRate, settings: t.getSettings?.() || {},
+                            label: t.label, ua: navigator.userAgent }));
 }
 async function toggleListen() {
   if (mode) return stopAll(true);

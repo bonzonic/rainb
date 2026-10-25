@@ -132,6 +132,19 @@ def wrong_person(context: str, note: str, all_notes: list[str]) -> bool:
     return not any(name in n and _kin(n) & said for name in names for n in all_notes)
 
 
+KINDS = {"japanese", "korean", "thai", "chinese", "indian", "italian", "mexican", "malay", "western",
+         "vietnamese", "french", "fish", "chip", "chips", "burger", "pizza", "ramen", "sushi", "nasi",
+         "coffee", "cafe", "bakery", "bar", "pub", "gym", "bouldering", "climbing", "badminton", "court",
+         "dentist", "clinic", "hospital", "school", "hotel"}
+
+
+def wrong_kind(context: str, note: str) -> bool:
+    """You said "the fish and chip shop near work"; the note is the Japanese restaurant near work."""
+    said = set(_norm(" ".join(context.split()[-14:])).split()) & KINDS
+    in_note = set(_norm(note).split()) & KINDS
+    return bool(said and in_note and not (said & in_note))
+
+
 def already_said(answer: str, context: str) -> bool:
     a = _norm(answer)
     return len(a) > 3 and a in _norm(context)
@@ -163,6 +176,7 @@ async def recall(brain: Brain, emb: Embedder, tf: TokenFactory, c: StuckCandidat
     if answer and (answer.endswith("?") or len(answer.split()) > 8):
         answer = None  # an answer is the missing words, not a sentence or a question
     if answer and (not src or not grounded(answer, src.text) or already_said(answer, c.context)
-                   or wrong_person(c.context, src.text, brain.note_texts())):
+                   or wrong_person(c.context, src.text, brain.note_texts())
+                   or wrong_kind(c.context, src.text)):
         answer = None
     return Recall(c.id, answer, src if answer else None, hits, timings, data)

@@ -28,6 +28,11 @@
   <!-- LISTEN -->
   <section id="listen" class="screen">
     <p class="brainline"><span id="brain-status">Using: demo brain</span> · <button class="link" data-tab="brain">Use your own notes</button></p>
+    <fieldset class="accent" id="accent">
+      <legend>Which English do you speak?</legend>
+      <label><input type="radio" name="accent" value="us"> US / UK</label>
+      <label><input type="radio" name="accent" value="my"> Malaysia / Singapore</label>
+    </fieldset>
 
     <div class="stage" id="stage" aria-live="polite">
       <p class="transcript" id="transcript"><span class="placeholder">Start listening, then stall mid-sentence. Try: “we should cite that paper, the one about retrieval augmented generation. It’s by…”</span><span class="gap" id="gap" aria-hidden="true"><span class="gap-fill" id="gap-fill"></span><span class="gap-answer" id="gap-answer"></span></span></p>

@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RainB test clips</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+  .sentence { font: 500 26px/1.35 var(--display); margin: 8px 0 16px; }
+  .count { color: var(--muted); font-family: var(--mono); font-size: 13px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+  .done li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<header class="top"><h1 class="wordmark">Rain<span>B</span></h1></header>
+<main>
+  <h2>Record 10 test sentences</h2>
+  <p class="sub">Hold the phone the way you do when using RainB. Read each sentence naturally, including the "uh"s.
+     Clips are saved only on the RainB computer, to compare speech models. Owner only.</p>
+  <p class="count" id="count"></p>
+  <p class="sentence" id="sentence"></p>
+  <div class="row">
+    <button class="primary" id="rec">Record</button>
+    <button class="ghost" id="redo" hidden>Redo previous</button>
+  </div>
+  <p class="hint" id="status"></p>
+  <ol class="done" id="done"></ol>
+</main>
+<script type="module">
+const SENTENCES = [
+  "My manager at Trontal is, uh, Khai Wei.",
+  "Let's go to the Japanese restaurant near work, uh, Uokatsu.",
+  "I'm going bouldering tonight at Camp5.",
+  "We play badminton every Saturday at Champion Court in SS2.",
+  "My dentist is Dr Tan in Bangsar.",
+  "The Trontal alert system uses Redis for the alerts.",
+  "My friend Vincent works at Rezolve AI in Singapore.",
+  "The Japanese textbook I'm using is, um, Genki.",
+  "My go-to coffee place near Mid Valley is Only Human Coffee.",
+  "Caleb's birthday is on, uh, the thirtieth of October.",
+];
+const $ = (id) => document.getElementById(id);
+let i = 0, rec = null;
+
+function show() {
+  $("count").textContent = i < SENTENCES.length ? `Sentence ${i + 1} of ${SENTENCES.length}` : "All done";
+  $("sentence").textContent = i < SENTENCES.length ? SENTENCES[i] : "Thanks! Tell Claude you're done.";
+  $("rec").hidden = i >= SENTENCES.length;
+  $("redo").hidden = i === 0;
+}
+
+async function start() {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: true },
+  });
+  const ctx = new AudioContext({ sampleRate: 16000 });
+  await ctx.audioWorklet.addModule("/pcm-worklet.js");
+  const node = new AudioWorkletNode(ctx, "pcm-framer");
+  const chunks = [];
+  node.port.onmessage = (e) => chunks.push(new Int16Array(e.data));
+  ctx.createMediaStreamSource(stream).connect(node);
+  rec = { stream, ctx, chunks };
+}
+
+async function stop() {
+  const { stream, ctx, chunks } = rec;
+  rec = null;
+  await new Promise((r) => setTimeout(r, 300));  // let the last frame land
+  stream.getTracks().forEach((t) => t.stop());
+  const rate = ctx.sampleRate;
+  await ctx.close();
+  const n = chunks.reduce((a, c) => a + c.length, 0);
+  const pcm = new Int16Array(n);
+  let off = 0;
+  for (const c of chunks) { pcm.set(c, off); off += c.length; }
+  const q = new URLSearchParams({ text: SENTENCES[i], rate: String(rate) });
+  const r = await fetch(`/api/testclips/${i + 1}?${q}`, { method: "POST", body: pcm.buffer, credentials: "include" });
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.status);
+  const li = document.createElement("li");
+  li.textContent = `${SENTENCES[i]} (${(n / 16000).toFixed(1)} s, ${rate} Hz)`;
+  $("done").append(li);
+  i++;
+  show();
+}
+
+$("rec").addEventListener("click", async () => {
+  try {
+    if (!rec) {
+      await start();
+      $("rec").textContent = "Stop";
+      $("rec").classList.add("on");
+      $("status").textContent = "Recording… read the sentence, then tap Stop.";
+    } else {
+      $("rec").textContent = "Record";
+      $("rec").classList.remove("on");
+      $("status").textContent = "Saving…";
+      await stop();
+      $("status").textContent = "Saved.";
+    }
+  } catch (e) {
+    $("status").textContent = `Problem: ${e.message}`;
+  }
+});
+$("redo").addEventListener("click", () => { i = Math.max(0, i - 1); $("done").lastElementChild?.remove(); show(); });
+show();
+</script>
+</body>
+</html>

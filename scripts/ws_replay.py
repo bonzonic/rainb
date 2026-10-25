@@ -32,7 +32,8 @@ async def main():
     with wave.open(a.wav, "rb") as w:
         pcm = w.readframes(w.getnframes()) + b"\x00\x00" * 16000 * 2
     async with websockets.connect(a.url, additional_headers=headers) as ws:
-        await ws.send(json.dumps({"type": "start", "source": "sample"}))
+        # never write test audio into the owner's conversation memory
+        await ws.send(json.dumps({"type": "start", "source": "sample", "remember": False}))
 
         async def reader():
             async for m in ws:

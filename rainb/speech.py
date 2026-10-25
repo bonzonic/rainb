@@ -1,13 +1,11 @@
 """Speech service: 16 kHz PCM in, WordEvents out. Knows nothing about hesitation.
 
-Engines behind one interface (ASR_BACKEND = auto | nemo | parakeet | whisper):
+Engines by the wearer's English ("Which English do you speak?", chosen per session):
 
-- nemo (default on a GPU): NVIDIA Parakeet TDT 0.6B v2 in NeMo with word boosting of the
-  brain's names. Plain Parakeet hears "Trontal" as "Toronto" and "Uokatsu" as "Yuakatsu";
-  boosted, it gets them right without touching real words. ~240-350 ms on an RTX 2060.
-- parakeet: the same model through ONNX Runtime on CPU. No GPU needed, keeps "uh/um", but
-  can't be biased towards custom words. Used when there's no GPU (e.g. a free CPU host).
-- whisper: Whisper large-v3-turbo primed with the names. Also accurate, but not NVIDIA.
+- US / UK: NVIDIA Parakeet TDT 0.6B v2 in NeMo with word boosting of the brain's names
+  (~240-350 ms on an RTX 2060); without NeMo or a GPU, the same model via ONNX on CPU.
+- Malaysia: Mesolitica's Malaysian Whisper small, primed with the names. On the owner's
+  phone recordings: 0% WER vs Parakeet's 12%, ~190 ms per clip. GPU only.
 
 Neither is a streaming model, so we stream the cheap way: an energy VAD watches the
 audio, and every time you go quiet for 250 ms the current window is transcribed and only
@@ -33,6 +31,7 @@ SILENCE_TRIGGER_S = 0.25
 FORCE_EVERY_S = 3.0
 MAX_WINDOW_S = 10.0
 CONTEXT_S = 4.0  # already-emitted audio kept in front of new speech
+TAIL_CHECK_S = 0.8  # after this much quiet, one more pass catches soft last words
 
 
 def _plain(text: str) -> str:
@@ -70,7 +69,8 @@ def _cuda_dlls():
     import site
 
     for sp in site.getsitepackages():
-        for sub in ("nvidia/cublas/bin", "nvidia/cudnn/bin", "nvidia/cuda_nvrtc/bin"):
+        # torch/lib: PyTorch ships its own cuBLAS/cuDNN, which the NeMo environment relies on
+        for sub in ("nvidia/cublas/bin", "nvidia/cudnn/bin", "nvidia/cuda_nvrtc/bin", "torch/lib"):
             d = Path(sp) / sub
             if d.is_dir():
                 if hasattr(os, "add_dll_directory"):
@@ -196,50 +196,72 @@ class ParakeetBoosted:
         return [(w["word"], float(w["start"]), float(w["end"])) for w in stamps if w.get("word")]
 
 
-class ASR:
-    """The engine this process uses, picked once at startup.
+US, MY = "us", "my"  # "Which English do you speak?": US/UK or Malaysia/Singapore
+ACCENT_LABELS = {US: "US / UK English", MY: "Malaysian English"}
 
-    auto: Parakeet + NeMo word boosting on GPU if NeMo and CUDA are there, else Parakeet ONNX
-    on CPU. Whisper only when asked for (ASR_BACKEND=whisper): it's not an NVIDIA model.
+
+class ASR:
+    """Speech engines by accent; each listening session picks one.
+
+    us: NVIDIA Parakeet TDT 0.6B v2 + NeMo word boosting on a CUDA GPU (else Parakeet ONNX on CPU).
+    my: Mesolitica's Malaysian Whisper small on a CUDA GPU. On the owner's phone recordings:
+        0% WER vs Parakeet's 12%. Needs a GPU; without one, Malaysian falls back to US.
+    Both engines stay loaded (~0.5 GB + ~2.5 GB fit a 6 GB GPU), so switching is free.
     """
-    backend: str | None = None
+    us_backend: str | None = None  # "nemo" | "parakeet"
+    my_ok: bool | None = None
+    my_error = ""
 
     @classmethod
-    def load(cls) -> str:
-        if cls.backend is None:
-            want = config.ASR_BACKEND
-            log = logging.getLogger("rainb")
-            if want in ("auto", "nemo"):
+    def load(cls) -> None:
+        log = logging.getLogger("rainb")
+        if cls.us_backend is None:
+            if config.ASR_BACKEND in ("auto", "nemo"):
                 try:
                     ParakeetBoosted.load()
-                    cls.backend = "nemo"
+                    cls.us_backend = "nemo"
                 except Exception as e:
-                    if want == "nemo":
+                    if config.ASR_BACKEND == "nemo":
                         raise
                     log.warning("Parakeet + NeMo boosting unavailable (%s); using Parakeet ONNX on CPU", e)
-            elif want == "whisper":
-                Whisper.load()
-                cls.backend = "whisper"
-            if cls.backend is None:
+            if cls.us_backend is None:
                 Parakeet.load()
-                cls.backend = "parakeet"
-        return cls.backend
+                cls.us_backend = "parakeet"
+        if cls.my_ok is None:
+            try:
+                if not Path(config.WHISPER_MODEL).exists() and "/" not in config.WHISPER_MODEL:
+                    raise RuntimeError(f"model not found: {config.WHISPER_MODEL}")
+                Whisper.load()
+                Whisper.words(np.zeros(SR, dtype=np.float32))  # fails fast if CUDA can't run it
+                cls.my_ok = True
+            except Exception as e:
+                cls.my_ok, cls.my_error = False, str(e)[:200]
+                log.warning("Malaysian English engine unavailable (%s); Malaysian falls back to US", e)
 
     @classmethod
-    def name(cls) -> str:
-        return {
-            "nemo": "NVIDIA Parakeet TDT 0.6B v2 + NeMo word boosting of your names (GPU)",
-            "whisper": f"Whisper {config.WHISPER_MODEL} (GPU, primed with your names)",
-            "parakeet": "NVIDIA Parakeet TDT 0.6B v2 (CPU)",
-        }[cls.load()]
+    def resolve(cls, accent: str) -> tuple[str, str | None]:
+        """(accent actually used, note for the wearer if it differs from what they chose)."""
+        cls.load()
+        if accent == MY and not cls.my_ok:
+            return US, "Malaysian English needs a GPU on the RainB server, so this session uses US / UK English."
+        return (accent if accent in (US, MY) else US), None
 
     @classmethod
-    def words(cls, audio: np.ndarray, terms: list[str] | None = None) -> list[tuple[str, float, float]]:
-        b = cls.load()
-        if b == "nemo":
-            return ParakeetBoosted.words(audio, terms)
-        if b == "whisper":
+    def name(cls, accent: str = US) -> str:
+        accent, _ = cls.resolve(accent)
+        if accent == MY:
+            return "Malaysian Whisper small by Mesolitica (GPU, primed with your names)"
+        return {"nemo": "NVIDIA Parakeet TDT 0.6B v2 + NeMo word boosting of your names (GPU)",
+                "parakeet": "NVIDIA Parakeet TDT 0.6B v2 (CPU)"}[cls.us_backend]
+
+    @classmethod
+    def words(cls, audio: np.ndarray, terms: list[str] | None = None,
+              accent: str = US) -> list[tuple[str, float, float]]:
+        accent, _ = cls.resolve(accent)
+        if accent == MY:
             return Whisper.words(audio, terms)
+        if cls.us_backend == "nemo":
+            return ParakeetBoosted.words(audio, terms)
         return Parakeet.words(audio)
 
 
@@ -286,6 +308,7 @@ class SpeechStream:
         self.last_tx_at = 0.0
         self._carry = np.zeros(0, dtype=np.float32)
         self.speaking = False
+        self.tail_pending = False
 
     def push(self, pcm16: bytes) -> tuple[bool, Level]:
         x = np.frombuffer(pcm16, dtype="<i2").astype(np.float32) / 32768.0
@@ -297,17 +320,29 @@ class SpeechStream:
         for f in x[:n].reshape(-1, FRAME):
             rms = float(np.sqrt(np.mean(f * f)) + 1e-9)
             rms_max = max(rms_max, rms)
-            speaking = rms > max(0.012, self.noise * 3.5)
-            if not speaking:  # track the noise floor only in quiet frames
-                self.noise = 0.95 * self.noise + 0.05 * rms
+            # phone audio arrives quiet (speech ~0.01-0.03 rms, vs ~0.09 from a desk mic), so
+            # the absolute floor is low and the adaptive noise estimate does the real work
+            speaking = rms > max(0.004, self.noise * 3.0)
+            if not speaking:
+                # follow the floor down fast but up only slowly: with quiet speech, soft syllables
+                # fall under the threshold, and a symmetric average would creep up until all
+                # speech counted as "noise" and the rest of the sentence never got transcribed
+                rate = 0.1 if rms < self.noise else 0.002
+                self.noise += rate * (rms - self.noise)
                 self.silence_run += FRAME / SR
             else:
                 self.silence_run = 0.0
                 self.speech_pending = True
+                self.tail_pending = True
             self.speaking = speaking
             self.t += FRAME / SR
         due = self.speech_pending and (
             self.silence_run >= SILENCE_TRIGGER_S or self.t - self.last_tx_at >= FORCE_EVERY_S)
+        # a soft last word ("…in Bangsar") can stay under the speech threshold, so after any
+        # speech do one more pass once it's been quiet a while, to pick up what the VAD missed
+        if not due and self.tail_pending and self.silence_run >= TAIL_CHECK_S:
+            due = True
+            self.tail_pending = False
         return due, Level(rms_max, self.speaking)
 
     def snapshot(self) -> tuple[np.ndarray, float]:
@@ -372,4 +407,4 @@ def transcribe_file(path: str) -> list[WordEvent]:
     with wave.open(path, "rb") as w:
         assert w.getframerate() == SR and w.getnchannels() == 1 and w.getsampwidth() == 2, "need 16 kHz mono int16"
         audio = np.frombuffer(w.readframes(w.getnframes()), dtype="<i2").astype(np.float32) / 32768.0
-    return [WordEvent(t, round(s, 3), round(e, 3)) for t, s, e in ASR.words(audio)]
+    return [WordEvent(t, round(s, 3), round(e, 3)) for t, s, e in ASR.words(audio, accent=US)]
