@@ -55,6 +55,24 @@ def test_drawn_out_filler_spellings_count_as_fillers():
     assert len(fired) == 1 and "filler" in fired[0].signals
 
 
+def test_direct_question_fires():
+    det = HesitationDetector()
+    out, _ = say(det, "What is the Japanese restaurant near my workplace?")
+    assert [c.reason for c in out if isinstance(c, StuckCandidate)] == ["question"]
+
+
+def test_direct_question_split_into_fragments_fires_once():
+    det = HesitationDetector()
+    out, _ = say(det, "What? is the Japanese restaurant? near my workplace?")
+    assert [c.reason for c in out if isinstance(c, StuckCandidate)] == ["question"]
+
+
+def test_small_talk_questions_do_not_fire():
+    det = HesitationDetector()
+    out, _ = say(det, "How are you doing today? What?")
+    assert [c for c in out if isinstance(c, StuckCandidate)] == []
+
+
 def test_explicit_phrase_fires_without_pause():
     det = HesitationDetector()
     out, _ = say(det, "uh what's the place called again?")

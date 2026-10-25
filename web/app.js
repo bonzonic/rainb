@@ -170,6 +170,7 @@ function meter(m) {
 }
 function candidate(m) {
   $("hint").textContent = m.reason === "explicit" ? "Heard “what’s it called”: looking…" :
+    m.reason === "question" ? "Heard a question: looking…" :
     m.reason === "manual" ? "Looking…" : "That pause looked like a stall: looking…";
 }
 

@@ -45,6 +45,9 @@ BOOSTED_FLOOR_S = 0.4  # ...unless weak signals lower it, but never below this
 BOOST_S = 0.15  # each weak signal (filler, repetition) lowers the threshold this much
 MAD_K = 3.0  # personal threshold = median gap + k * MAD
 WEAK_WINDOW_S = 2.0  # fillers / repetitions count only if this recent
+QUESTION_WORDS = {"what", "what's", "whats", "who", "who's", "whos", "where", "where's", "wheres",
+                  "which", "when", "whose"}
+QUESTION_WINDOW_S = 8.0
 COOLDOWN_S = 20.0
 RECOVERY_GRACE_S = 3.0
 CONTEXT_WORDS = 25
@@ -76,6 +79,7 @@ class HesitationDetector:
         self.sent: StuckCandidate | None = None  # awaiting self-recovery
         self.cooldown_until = float("-inf")
         self.grace_until = float("-inf")
+        self.last_fire_at = float("-inf")
         self.other_spoke_at = float("-inf")
 
     # -- inputs ---------------------------------------------------------------
@@ -110,7 +114,28 @@ class HesitationDetector:
             c = self._fire("explicit", at=w.end, pause_start=w.end, signals=("retrieval_phrase",))
             if c:
                 out.append(c)
+        elif self._direct_question(w):
+            c = self._fire("question", at=w.end, pause_start=w.end, signals=("direct_question",))
+            if c:
+                out.append(c)
         return out
+
+    def _direct_question(self, w: WordEvent) -> bool:
+        """You asked outright: "What is the Japanese restaurant near my workplace?"
+
+        A finished wh-question about something specific is as clear a signal as a stall.
+        Parakeet often splits it into "What?" / "is the Japanese restaurant?", so look back
+        a few seconds for the question word. "How are you?" and bare "What?" don't count.
+        """
+        if not w.text.rstrip().endswith("?") or w.end - self.last_fire_at < QUESTION_WINDOW_S:
+            return False
+        recent = [x for x in self.words if w.end - x.start <= QUESTION_WINDOW_S][-14:]
+        toks = [norm(x.text) for x in recent]
+        q = max((i for i, t in enumerate(toks) if t in QUESTION_WORDS), default=None)
+        if q is None:
+            return False
+        after = [t for t in toks[q + 1:] if t and t not in FILLERS]
+        return len(after) >= 3  # "what is the restaurant?", not a bare "What?"
 
     def manual(self, now: float) -> StuckCandidate:
         """The "I'm stuck" button: always fires, ignores cool-down."""
@@ -183,4 +208,5 @@ class HesitationDetector:
         context = " ".join(w.text for w in list(self.words)[-CONTEXT_WORDS:])
         c = StuckCandidate(self.next_id, reason, at, pause_start, context, tuple(signals))
         self.next_id += 1
+        self.last_fire_at = at
         return c

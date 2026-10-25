@@ -75,6 +75,10 @@ async def lifespan(app: FastAPI):
     state.update(emb=emb, tf=tf)
     await asyncio.to_thread(emb.warm)
     log.info("speech: %s", await asyncio.to_thread(ASR.name))
+    if config.OWNER_KEY and brains.exists("me"):  # load the owner's names now, not on their first sentence
+        import numpy as np
+
+        await asyncio.to_thread(ASR.words, np.zeros(16000, dtype=np.float32), brains.get("me").vocabulary())
     log.info("demo brain: %s", await brains.build_demo(emb, log=log.info))
     try:  # open the HTTPS pool before the first stall
         await tf.chat([{"role": "user", "content": "hi"}], max_tokens=1)
