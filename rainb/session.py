@@ -94,10 +94,13 @@ class Session:
                 if words:
                     aliases = self.brain.aliases()
                     for i, w in enumerate(words):
-                        name = aliases.fix(w.text)
+                        before = [x.text for x in self.transcript[-8:]] + [x.text for x in words[:i]]
+                        name = aliases.fix(w.text, before[-8:])
                         if name:  # "Toronto" -> "Trontal": a name from your notes that sounds the same
+                            log.info("sound-alike: %r -> %r", w.text, name)
                             words[i] = WordEvent(name, w.start, w.end, w.speaker)
                             fixed.add(i)
+                    log.info("heard: %s", " ".join(w.text for w in words))
                     await self.send({"type": "words", "words": [
                         {**w.to_dict(), "fixed": i in fixed} for i, w in enumerate(words)]})
                 for w in words:

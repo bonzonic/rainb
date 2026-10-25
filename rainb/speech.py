@@ -175,6 +175,7 @@ class ParakeetBoosted:
             cfg.greedy.boosting_tree_alpha = cls.ALPHA if terms else 0.0
         cls._model.change_decoding_strategy(cfg, verbose=False)
         cls._terms = terms
+        logging.getLogger("rainb").info("word boosting: %d names %s", len(terms), list(terms)[:12])
 
     @classmethod
     def _transcribe(cls, audio: np.ndarray):

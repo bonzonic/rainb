@@ -31,7 +31,7 @@ EXPLICIT = [
     r"what (is|was) (it|that|the \w+( \w+)?) called",
     r"\bcalled again\b",
     r"what'?s (his|her|their|its) name",
-    r"what was (his|her|their|its) name",
+    r"what (was|is) (his|her|their|its|the) name",
     r"\bwhat was it\b",
     r"i (forgot|forget|can'?t remember) (the|his|her|its|their|what)",
     r"\bthe thingy\b",

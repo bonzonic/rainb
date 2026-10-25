@@ -1,19 +1,31 @@
 """Sounds-like fixes for the wearer's own names, applied to every word as it arrives (~0 ms).
 
 Word boosting nudges Parakeet towards "Trontal", but a real voice can still land on a
-common word that sounds the same ("Toronto"). If a heard word has the same consonant
-skeleton as a name from the brain, and that heard word never appears in the brain's
-notes, it is almost certainly the name. "control" or "council" start differently and
-stay as they are. Trade-off: in this brain a genuine "Toronto" also becomes "Trontal"
-until a note mentions Toronto.
+real word that sounds the same ("Toronto"). A heard word is turned into a brain name when
+it has the same consonant skeleton, never if the heard word itself appears in the notes,
+and with one more condition for real English words:
+
+- not a real word ("Trontel", "Yuakatsu", "Readies"): fix it.
+- a real word ("Toronto"): fix it only if the words around it also appear next to that
+  name in the notes ("my manager in Toronto" -> Trontal, because the note says "My
+  manager at Trontal"). "I flew to Toronto last year" stays Toronto.
+
+"Real word" = a whole token in the BGE embedding model's 30k vocabulary.
 """
 from __future__ import annotations
 
+import glob
+import json
 import re
 from functools import lru_cache
 
+from . import config
+
 _VOWELS = set("aeiouy")
 _MAP = str.maketrans({"c": "k", "q": "k", "z": "s", "v": "f", "d": "t", "b": "p", "g": "k"})
+_STOP = set("""a an the and or but of to in on at by for with from is was are were be been my me i i'm we our
+you your he she his her they their it its this that what what's who which when where how there here
+do did not no so like just one go going get got uh um""".split())
 
 
 def skeleton(word: str) -> str:
@@ -37,30 +49,52 @@ def _distance(a: str, b: str) -> int:
     return prev[-1]
 
 
+def _words(text: str) -> list[str]:
+    return re.findall(r"[a-z0-9']+", text.lower())
+
+
+@lru_cache(maxsize=1)
+def known_words() -> frozenset[str]:
+    """Whole-word tokens of the local embedding model's vocabulary (common English + big places)."""
+    paths = glob.glob(str(config.ROOT / "models" / "fastembed" / "*bge-base*" / "snapshots" / "*" / "tokenizer.json"))
+    if not paths:
+        return frozenset()
+    vocab = json.load(open(paths[0], encoding="utf-8"))["model"]["vocab"]
+    return frozenset(w for w in vocab if w.isalpha())
+
+
 class Aliases:
-    def __init__(self, names: list[str], note_text: str):
-        # single-word names only; multi-word names are left to boosting
-        self.names = {}
+    def __init__(self, names: list[str], notes: list[str], known: frozenset[str] | None = None):
+        self.known = known if known is not None else known_words()
+        self.names: dict[str, str] = {}
+        self.context: dict[str, set[str]] = {}
         for n in names:
             # single words without digits ("Camp5" would swallow every "camp")
-            if " " not in n and len(n) >= 4 and not any(ch.isdigit() for ch in n):
-                k = skeleton(n)
-                if len(k) >= 3:
-                    self.names.setdefault(k, n)
-        self.note_words = set(re.findall(r"[a-z0-9']+", note_text.lower()))
+            if " " in n or len(n) < 4 or any(ch.isdigit() for ch in n):
+                continue
+            k = skeleton(n)
+            if len(k) < 3 or k in self.names:
+                continue
+            self.names[k] = n
+            near = set()
+            for note in notes:
+                if n.lower() in note.lower():
+                    near |= {w for w in _words(note) if w not in _STOP and w != n.lower()}
+            self.context[n] = near
+        self.note_words = {w for note in notes for w in _words(note)}
 
-    @lru_cache(maxsize=4096)
-    def fix(self, word: str) -> str | None:
-        """The brain name this heard word should be, or None."""
+    def fix(self, word: str, context: list[str] = ()) -> str | None:
+        """The brain name this heard word should be, or None. `context` = nearby heard words."""
         bare = re.sub(r"[^\w']", "", word)
-        if len(bare) < 4 or bare.lower() in self.note_words:
+        low = bare.lower()
+        if len(bare) < 4 or low in self.note_words:
             return None
         k = skeleton(bare)
         if len(k) < 3:
             return None
         best = None
         for nk, name in self.names.items():
-            if nk[0] != k[0] or name.lower() == bare.lower():
+            if nk[0] != k[0] or name.lower() == low:
                 continue
             d = _distance(k, nk)
             allowed = 0 if len(nk) <= 3 else 1 if len(nk) <= 5 else 2  # short skeletons match too much
@@ -68,5 +102,10 @@ class Aliases:
                 best = (d, name)
         if not best:
             return None
+        name = best[1]
+        if low in self.known:  # a real word: only with supporting context from the name's notes
+            nearby = {w for c in context for w in _words(c)}
+            if not (nearby & self.context.get(name, set())):
+                return None
         # keep the heard word's trailing punctuation: "Toronto?" -> "Trontal?"
-        return best[1] + word[len(word.rstrip(".,?!;:")):]
+        return name + word[len(word.rstrip(".,?!;:")):]

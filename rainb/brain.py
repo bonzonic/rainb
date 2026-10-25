@@ -195,7 +195,7 @@ class Brain:
 
         vocab = self.vocabulary()
         if getattr(self, "_aliases", None) is None:
-            notes = " ".join(r[0] for r in self.db.execute("SELECT text FROM chunks WHERE kind = 'doc'"))
+            notes = [r[0] for r in self.db.execute("SELECT text FROM chunks WHERE kind = 'doc'")]
             self._aliases = Aliases(boost_terms(vocab), notes)
         return self._aliases
 
