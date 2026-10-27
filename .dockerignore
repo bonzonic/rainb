@@ -11,6 +11,7 @@ node_modules
 embeddings.json
 **/__pycache__
 notes.json
+docs/notes/notes.json
 eval
 tests
 .venv-nemo

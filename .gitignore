@@ -49,5 +49,6 @@ eval/e2e_last.json
 
 # Personal notes and the owner's eval data (real names, places, dates)
 notes.json
+docs/notes/notes.json
 eval/recall_golden.jsonl
 eval/e2e_scenarios.json
