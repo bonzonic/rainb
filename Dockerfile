@@ -5,7 +5,7 @@ FROM python:3.11-slim
 # Hugging Face Spaces run the container as uid 1000
 RUN useradd -m -u 1000 user
 USER user
-ENV HOME=/home/user PATH=/home/user/.local/bin:$PATH \
+ENV HOME=/home/user PATH=/home/user/.local/bin:$PATH PYTHONPATH=/home/user/app \
     PYTHONUNBUFFERED=1 HF_HUB_DISABLE_TELEMETRY=1 ASR_BACKEND=parakeet
 WORKDIR /home/user/app
 
