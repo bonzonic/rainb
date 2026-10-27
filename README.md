@@ -158,6 +158,7 @@ One small CPU VM (4 vCPU / 8–16 GB RAM is plenty) running Docker:
 ```bash
 git clone https://github.com/bonzonic/rainb && cd rainb
 cp .env.example .env    # NEBIUS_API_KEY, DOMAIN (e.g. <public-ip>.sslip.io), optional RAINB_OWNER_KEY
+mkdir -p data && sudo chown 1000:1000 data   # the app runs as uid 1000
 docker compose up -d --build
 ```
 
