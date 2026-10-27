@@ -1,3 +1,15 @@
+---
+title: RainB
+emoji: 🧠
+colorFrom: indigo
+colorTo: pink
+sdk: docker
+app_port: 7860
+pinned: false
+license: mit
+short_description: Fills in the word you blank on, mid-sentence
+---
+
 # RainB
 
 An extension of your brain: the moment you blank mid-sentence, the answer is
@@ -112,6 +124,32 @@ python -m rainb transcribe some.wav                   # Parakeet words + timesta
 python eval/recall_eval.py eval/recall_golden_demo.jsonl
 python -m pytest tests
 ```
+
+## Deploy (Hugging Face Space, free CPU)
+
+The YAML at the top of this README makes the repo a Docker Space (`sdk: docker`,
+`app_port: 7860`). Hugging Face serves it over HTTPS, so no Caddy is needed.
+
+1. Create a Space: SDK **Docker**, hardware **CPU basic** (free).
+2. Space **Settings → Variables and secrets**: add the secret `NEBIUS_API_KEY`
+   (and optionally `RAINB_OWNER_KEY`).
+3. Push a snapshot of `mvp` (the wav samples go through Git LFS, which Hugging Face requires for binaries):
+
+```bash
+git checkout --orphan hf-space mvp
+git lfs track "*.wav"
+git add .gitattributes
+git add --renormalize web/samples
+git commit -m "RainB Space snapshot"
+git push --force https://huggingface.co/spaces/<user>/<space> hf-space:main
+git checkout mvp
+```
+
+Speech on the Space is NVIDIA Parakeet TDT 0.6B v2 (ONNX, CPU) for US / UK English;
+Malaysian English needs a GPU and falls back to US / UK. The demo persona (Maya) is
+the default brain. Open the app at `https://<user>-<space>.hf.space` rather than
+inside the huggingface.co page, so the mic and cookies work. The free tier has no
+persistent disk: uploaded notes vanish when the Space restarts, the demo brain is rebuilt.
 
 ## Deploy (Nebius AI Cloud)
 

@@ -10,3 +10,11 @@ docs
 node_modules
 embeddings.json
 **/__pycache__
+notes.json
+eval
+tests
+.venv-nemo
+.pytest_cache
+.claude
+HANDOFF.md
+search.mjs

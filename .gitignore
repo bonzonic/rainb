@@ -46,3 +46,8 @@ models/
 
 # end-to-end test output
 eval/e2e_last.json
+
+# Personal notes and the owner's eval data (real names, places, dates)
+notes.json
+eval/recall_golden.jsonl
+eval/e2e_scenarios.json
