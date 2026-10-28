@@ -1,0 +1,6 @@
+# Default speech engine on an NVIDIA GPU: Parakeet TDT 0.6B v2 in NeMo with word boosting
+# of your own names (see rainb/speech.py). Install torch with CUDA first:
+#   pip install torch==2.6.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu124
+# Without NeMo or a GPU, RainB falls back to Parakeet ONNX on CPU (requirements.txt).
+-r requirements.txt
+nemo_toolkit[asr]==3.0.0

@@ -1,0 +1,16 @@
+{"brain": "demo", "context": "we should cite that paper, the one about retrieval augmented generation, it's by uh", "expect": "Lewis"}
+{"brain": "demo", "context": "let's get ramen near the office, at uh", "expect": "Menya Kagura"}
+{"brain": "demo", "context": "I need to send the pilot one-pager to my manager, uh what's her name", "expect": "Priya"}
+{"brain": "demo", "context": "the new data engineer, the guy from Grab, his name is", "expect": "Daniel"}
+{"brain": "demo", "context": "Daniel's dog is a corgi called", "expect": "Mochi"}
+{"brain": "demo", "context": "the vector database Daniel liked was uh", "expect": "Qdrant"}
+{"brain": "demo", "context": "our design system is called uh", "expect": "Lantern"}
+{"brain": "demo", "context": "we picked the analytics vendor, the one we self-host, uh what's it called", "expect": "Metabase"}
+{"brain": "demo", "context": "the accessibility consultant we hired, she's from", "expect": "Clearpath"}
+{"brain": "demo", "context": "Kestrel cut intake time from eleven minutes to uh", "expect": "4"}
+{"brain": "demo", "context": "my sister is adopting a cat called uh", "expect": "Pandan"}
+{"brain": "demo", "context": "the book Hendrik recommended, the design one, is by", "expect": "Norman"}
+{"brain": "demo", "context": "let's do Mexican food tonight at that place in uh", "expect": null}
+{"brain": "demo", "context": "the capital of Australia is uh", "expect": null}
+{"brain": "demo", "context": "so I was thinking that we, uh", "expect": null}
+{"brain": "demo", "context": "my brother's birthday is on uh", "expect": null}

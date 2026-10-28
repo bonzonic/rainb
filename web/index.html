@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#EEF1F6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141821" media="(prefers-color-scheme: dark)">
+<title>RainB</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <h1 class="wordmark">Rain<span>B</span></h1>
+  <nav class="tabs" aria-label="Screens">
+    <button data-tab="listen" aria-current="page">Listen</button>
+    <button data-tab="moments">Moments</button>
+    <button data-tab="brain">Brain</button>
+    <button data-tab="privacy">Privacy</button>
+  </nav>
+</header>
+
+<main>
+  <!-- LISTEN -->
+  <section id="listen" class="screen">
+    <p class="brainline"><span id="brain-status">Using: demo brain</span> · <button class="link" data-tab="brain">Use your own notes</button></p>
+    <fieldset class="accent" id="accent">
+      <legend>Which English do you speak?</legend>
+      <label><input type="radio" name="accent" value="us"> US / UK</label>
+      <label><input type="radio" name="accent" value="my"> Malaysia / Singapore</label>
+    </fieldset>
+
+    <div class="stage" id="stage" aria-live="polite">
+      <p class="transcript" id="transcript"><span class="placeholder">Start listening, then stall mid-sentence. Try: “we should cite that paper, the one about retrieval augmented generation. It’s by…”</span><span class="gap" id="gap" aria-hidden="true"><span class="gap-fill" id="gap-fill"></span><span class="gap-answer" id="gap-answer"></span></span></p>
+    </div>
+
+    <div class="meter" id="meter" aria-label="Pause meter">
+      <div class="meter-track"><div class="meter-bar" id="meter-bar"></div><div class="meter-mark" id="meter-mark"></div></div>
+      <div class="meter-read mono"><span id="meter-pause">0.00 s</span> pause · fires at <span id="meter-thr">0.60 s</span> after an unfinished phrase</div>
+    </div>
+
+    <article class="answer" id="answer" hidden>
+      <p class="answer-kicker mono" id="answer-kicker"></p>
+      <p class="answer-text" id="answer-text"></p>
+      <p class="answer-source" id="answer-source"></p>
+      <div class="answer-actions">
+        <button class="ghost" id="not-it">Not it</button>
+        <button class="ghost" id="more">More</button>
+      </div>
+      <p class="answer-more" id="answer-more" hidden></p>
+    </article>
+
+    <div class="controls">
+      <button class="primary" id="listen-btn">Start listening</button>
+      <button class="stuck" id="stuck-btn" disabled>I’m stuck</button>
+    </div>
+    <p class="hint" id="hint">Uses your microphone. Audio is transcribed and dropped; it is never stored.</p>
+
+    <div class="samples">
+      <h2>No microphone? Play a sample conversation</h2>
+      <p class="sub">A recorded clip streams through the same pipeline as your voice: speech recognition, pause detection, recall.</p>
+      <ul id="samples"></ul>
+    </div>
+  </section>
+
+  <!-- MOMENTS -->
+  <section id="moments" class="screen" hidden>
+    <h2>Moments</h2>
+    <p class="sub">Every time RainB thought you were stuck, what it found, and how long it took from the start of your pause.</p>
+    <ol class="moment-list" id="moment-list"></ol>
+  </section>
+
+  <!-- BRAIN -->
+  <section id="brain" class="screen" hidden>
+    <h2>Brain</h2>
+    <p class="sub" id="brain-label"></p>
+    <dl class="stats" id="stats"></dl>
+
+    <div class="card">
+      <h3>Use your own notes</h3>
+      <p>Upload up to 20 Markdown, text, JSON or PDF files (10 MB total). They go into a private brain for this browser only and are deleted after 24 hours.</p>
+      <label class="file"><input type="file" id="upload" multiple accept=".md,.txt,.json,.pdf"><span>Choose files</span></label>
+      <p class="mono small" id="upload-status"></p>
+      <button class="link" id="use-demo" hidden>Switch back to the demo brain</button>
+    </div>
+
+    <div class="card" id="pair-card">
+      <h3>Pair this phone</h3>
+      <p>Owner only: enter your pairing key to use your own brain on this device.</p>
+      <form id="pair-form" class="row"><input type="password" id="pair-key" autocomplete="off" placeholder="Pairing key" aria-label="Pairing key"><button class="ghost" type="submit">Pair</button></form>
+      <p class="mono small" id="pair-status"></p>
+    </div>
+
+    <h3>Sources</h3>
+    <ul class="docs" id="docs"></ul>
+    <h3 id="mem-head" hidden>Conversation memory</h3>
+    <ul class="docs" id="mems"></ul>
+  </section>
+
+  <!-- PRIVACY -->
+  <section id="privacy" class="screen" hidden>
+    <h2>Privacy</h2>
+    <ul class="rules">
+      <li><strong>Raw audio is never stored.</strong> It is transcribed in memory and dropped.</li>
+      <li><strong>Only you can trigger a lookup.</strong> RainB listens for your own hesitation, not other people’s.</li>
+      <li><strong>Other people’s words are deleted after 24 hours.</strong> Your own words and the facts extracted from them stay until you delete them.</li>
+      <li><strong>The demo brain remembers nothing you say.</strong> Uploaded notes are deleted after 24 hours.</li>
+    </ul>
+    <button class="danger" id="forget">Delete my conversation memory</button>
+    <p class="mono small" id="forget-status"></p>
+    <h3>Models</h3>
+    <p class="sub" id="models"></p>
+  </section>
+</main>
+
+<div class="toast" id="toast" role="status" hidden></div>
+<script src="/app.js" type="module"></script>
+</body>
+</html>
